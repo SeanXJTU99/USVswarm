@@ -1,0 +1,139 @@
+<?xml version="1.0"?>
+<robot name="usv_hull" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!--
+    USV Hull Model — storage-box-sized plastic vessel (50–80 cm).
+    Dual propeller differential drive, no rudder.
+  -->
+  <xacro:property name="hull_length" value="0.65"/>
+  <xacro:property name="hull_width" value="0.40"/>
+  <xacro:property name="hull_height" value="0.25"/>
+  <xacro:property name="waterline_offset" value="0.05"/>
+
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="8.0"/>
+      <inertia
+        ixx="${8.0/12 * (hull_width*hull_width + hull_height*hull_height)}"
+        ixy="0.0" ixz="0.0"
+        iyy="${8.0/12 * (hull_length*hull_length + hull_height*hull_height)}"
+        iyz="0.0"
+        izz="${8.0/12 * (hull_length*hull_length + hull_width*hull_width)}"
+      />
+    </inertial>
+
+    <visual>
+      <origin xyz="0 0 ${waterline_offset}" rpy="0 0 0"/>
+      <geometry>
+        <box size="${hull_length} ${hull_width} ${hull_height}"/>
+      </geometry>
+      <material name="usv_orange">
+        <color rgba="1.0 0.5 0.0 1.0"/>
+      </material>
+    </visual>
+
+    <collision>
+      <origin xyz="0 0 ${waterline_offset}" rpy="0 0 0"/>
+      <geometry>
+        <box size="${hull_length} ${hull_width} ${hull_height}"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- Left propeller -->
+  <joint name="left_propeller_joint" type="continuous">
+    <origin xyz="${-hull_length/2 + 0.05} ${-hull_width/2} ${-waterline_offset}" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child link="left_propeller"/>
+    <axis xyz="1 0 0"/>
+  </joint>
+
+  <link name="left_propeller">
+    <inertial>
+      <mass value="0.05"/>
+      <inertia ixx="1e-5" ixy="0" ixz="0" iyy="1e-5" iyz="0" izz="1e-5"/>
+    </inertial>
+    <visual>
+      <geometry>
+        <cylinder radius="0.04" length="0.02"/>
+      </geometry>
+      <material name="prop_dark">
+        <color rgba="0.2 0.2 0.2 1.0"/>
+      </material>
+    </visual>
+  </link>
+
+  <!-- Right propeller -->
+  <joint name="right_propeller_joint" type="continuous">
+    <origin xyz="${-hull_length/2 + 0.05} ${hull_width/2} ${-waterline_offset}" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child link="right_propeller"/>
+    <axis xyz="1 0 0"/>
+  </joint>
+
+  <link name="right_propeller">
+    <inertial>
+      <mass value="0.05"/>
+      <inertia ixx="1e-5" ixy="0" ixz="0" iyy="1e-5" iyz="0" izz="1e-5"/>
+    </inertial>
+    <visual>
+      <geometry>
+        <cylinder radius="0.04" length="0.02"/>
+      </geometry>
+      <material name="prop_dark"/>
+    </visual>
+  </link>
+
+  <!-- IMU sensor -->
+  <link name="imu_link"/>
+  <joint name="imu_joint" type="fixed">
+    <origin xyz="0 0 ${hull_height/2 + waterline_offset + 0.05}" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child link="imu_link"/>
+  </joint>
+
+  <gazebo reference="imu_link">
+    <sensor type="imu" name="usv_imu">
+      <update_rate>100.0</update_rate>
+    </sensor>
+  </gazebo>
+
+  <!-- Camera sensor -->
+  <link name="camera_link"/>
+  <joint name="camera_joint" type="fixed">
+    <origin xyz="${hull_length/2 - 0.05} 0 ${hull_height/2 + waterline_offset + 0.08}" rpy="0 0.3 0"/>
+    <parent link="base_link"/>
+    <child link="camera_link"/>
+  </joint>
+
+  <gazebo reference="camera_link">
+    <sensor type="camera" name="usv_camera">
+      <update_rate>30.0</update_rate>
+      <camera>
+        <horizontal_fov>1.396</horizontal_fov>
+        <image>
+          <width>640</width>
+          <height>480</height>
+        </image>
+      </camera>
+    </sensor>
+  </gazebo>
+
+  <!-- Differential drive plugin -->
+  <gazebo>
+    <plugin name="usv_differential_drive" filename="libgazebo_ros_diff_drive.so">
+      <left_joint>left_propeller_joint</left_joint>
+      <right_joint>right_propeller_joint</right_joint>
+      <wheel_separation>${hull_width}</wheel_separation>
+      <wheel_diameter>0.08</wheel_diameter>
+      <max_wheel_torque>5.0</max_wheel_torque>
+      <max_wheel_acceleration>2.0</max_wheel_acceleration>
+      <command_topic>cmd_vel</command_topic>
+      <odometry_topic>odom</odometry_topic>
+      <robot_base_frame>base_link</robot_base_frame>
+      <publish_odom_tf>true</publish_odom_tf>
+    </plugin>
+  </gazebo>
+
+</robot>

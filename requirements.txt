@@ -1,0 +1,30 @@
+# USV Swarm — Python dependencies
+# ROS 2 Humble packages (installed via apt, not pip):
+#   ros-humble-desktop ros-humble-gazebo-ros-pkgs ros-humble-navigation2
+#   ros-humble-slam-toolbox ros-humble-cartographer-ros ros-humble-ros2-control
+
+# Computer vision
+torch>=2.0.0
+torchvision>=0.15.0
+ultralytics>=8.0.0
+opencv-python>=4.8.0
+onnxruntime>=1.15.0
+
+# Numerical & scientific
+numpy>=1.24.0
+scipy>=1.10.0
+pyyaml>=6.0
+
+# ROS 2 Python bindings (usually installed with ROS, listed for reference)
+# rclpy
+# geometry_msgs
+# nav_msgs
+# sensor_msgs
+
+# Testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Optional: model optimization
+# onnx>=1.14.0
+# openvino>=2023.0.0

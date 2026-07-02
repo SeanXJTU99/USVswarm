@@ -1,0 +1,30 @@
+# Wave simulation plugin configuration for Gazebo VRX
+# Simulates water surface dynamics: buoyancy, drag, and wave forces
+
+wave_model:
+  # Wave parameters
+  amplitude: 0.15              # Wave amplitude (m)
+  period: 3.0                  # Wave period (s)
+  direction: 0.0               # Wave propagation direction (radians, 0 = +x)
+  gain: 1.0                    # Overall force gain
+
+  # Wind parameters
+  wind:
+    enabled: true
+    velocity: 2.5              # Wind speed (m/s)
+    direction: 0.0             # Wind direction (radians)
+    gain: 0.5                  # Wind force gain
+
+  # Current parameters
+  current:
+    enabled: true
+    velocity: 0.3              # Current speed (m/s)
+    direction: 0.0             # Current direction (radians)
+    horizontal_gain: 0.8       # Lateral current gain
+    vertical_gain: 0.2         # Vertical current gain
+
+  # Buoyancy tuning (per vessel mass range)
+  buoyancy:
+    fluid_density: 1000.0      # Water density (kg/m³)
+    drag_coefficient: 0.6      # Drag coefficient
+    added_mass_gain: 0.15      # Added mass effect gain

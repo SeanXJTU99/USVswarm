@@ -1,0 +1,42 @@
+# Data files (desensitized — not included)
+*.xlsx
+*.csv
+*.pth
+*.bin
+*.pt
+raw_data/
+checkpoints/
+secrets.yaml
+
+# Project management files
+CLAUDE.md
+*.md
+!README.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ROS 2 build artifacts
+build/
+install/
+log/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.docker/
