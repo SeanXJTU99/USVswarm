@@ -1,0 +1,135 @@
+# Navigation2 (nav2) parameters for USV water surface operation
+# Planners: A* global, DWA local controller
+# Tuned for: differential-drive USV, water dynamics, low-speed operation
+
+bt_navigator:
+  ros__parameters:
+    use_sim_time: true
+    global_frame: map
+    robot_base_frame: base_link
+    transform_tolerance: 0.5
+    plugin_lib_names:
+      - "nav2_compute_path_to_pose_action_bt_node"
+      - "nav2_compute_path_through_poses_action_bt_node"
+      - "nav2_follow_path_action_bt_node"
+      - "nav2_spin_action_bt_node"
+      - "nav2_back_up_action_bt_node"
+      - "nav2_wait_action_bt_node"
+      - "nav2_assisted_teleop_action_bt_node"
+      - "nav2_controller_selector_bt_node"
+      - "nav2_goal_checker_selector_bt_node"
+
+controller_server:
+  ros__parameters:
+    use_sim_time: true
+    controller_frequency: 20.0
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.001
+    min_theta_velocity_threshold: 0.001
+
+    # DWA (Dynamic Window Approach) — local planner
+    # Tuned for water: low acceleration, high inertia
+    DWBPlugin:
+      plugin: "dwb_core::DWBLocalPlanner"
+      debug_trajectory_details: true
+      min_vel_x: -0.3
+      max_vel_x: 1.5
+      max_vel_y: 0.0           # Differential drive — no lateral velocity
+      min_vel_theta: -1.0
+      max_vel_theta: 1.0
+      acc_lim_x: 0.5
+      acc_lim_y: 0.0
+      acc_lim_theta: 1.5
+      dec_lim_x: -0.8          # Water braking distance is long
+      dec_lim_theta: -2.0
+
+      # Trajectory scoring weights
+      path_distance_bias: 2.0
+      goal_distance_bias: 1.5
+      occdist_scale: 0.03      # Obstacle avoidance weight
+      forward_point_distance: 0.5
+      stopping_scale: 0.6
+      rotation_scale: 0.4
+
+      # Goal tolerance (wider for water — GPS drift tolerant)
+      xy_goal_tolerance: 0.5
+      yaw_goal_tolerance: 0.2
+      latch_xy_goal_tolerance: true
+
+planner_server:
+  ros__parameters:
+    use_sim_time: true
+    planner_plugins: ["GridBased"]
+
+    # A* global planner (SMAC Hybrid — better for open water)
+    GridBased:
+      plugin: "smac_planner/SmacPlannerHybrid"
+      downsample_costmap: false
+      downsampling_factor: 1
+      tolerance: 0.5
+      allow_unknown: true       # Water — allow planning through unknown cells
+      max_iterations: 1000000
+      max_on_approach_iterations: 1000
+      max_planning_duration: 5.0
+      angle_quantization_bins: 72
+      minimum_turning_radius: 0.5
+      analytic_expansion_ratio: 3.5
+      analytic_expansion_max_length: 3.0
+      reverse_penalty: 5.0
+      change_penalty: 0.5
+
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      use_sim_time: true
+      global_frame: map
+      robot_base_frame: base_link
+      update_frequency: 1.0
+      publish_frequency: 0.5
+      resolution: 0.05
+      width: 200
+      height: 200
+      rolling_window: false
+      always_send_full_costmap: true
+      track_unknown_space: true
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        enabled: true
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        enabled: true
+        inflation_radius: 0.5
+        cost_scaling_factor: 5.0
+
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      use_sim_time: true
+      global_frame: odom
+      robot_base_frame: base_link
+      update_frequency: 10.0
+      publish_frequency: 5.0
+      resolution: 0.05
+      width: 100
+      height: 100
+      rolling_window: true
+      always_send_full_costmap: false
+      track_unknown_space: false
+      plugins: ["obstacle_layer", "inflation_layer"]
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        enabled: true
+        inflation_radius: 0.5
+        cost_scaling_factor: 5.0
+
+# Behavior trees
+behavior_tree:
+  default_nav_to_pose_bt_xml: ""
+  default_nav_through_poses_bt_xml: ""

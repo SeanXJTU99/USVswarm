@@ -1,0 +1,58 @@
+# YOLOv5 model configuration for water surface object detection
+# Trained on: FloW, WSODD, SeaShips datasets (merged)
+# Target classes: vessel, buoy, swimmer, floating_debris, reef, navigation_marker, fishing_net
+
+# Model architecture
+model:
+  name: yolov5s
+  input_size: [640, 640]
+  channels: 3
+
+# Data augmentation (tuned for water surface)
+augmentation:
+  hsv_h: 0.015      # Low hue shift — water colors don't vary much
+  hsv_s: 0.7        # Aggressive saturation — combat glare bleaching
+  hsv_v: 0.4        # Moderate value shift — handle lighting changes
+  degrees: 5.0      # Small rotation — vessels don't flip upside down
+  translate: 0.1    # Mild translation
+  scale: 0.5        # Multi-scale for small distant objects
+  shear: 2.0        # Slight shear
+  perspective: 0.0
+  flipud: 0.0       # No vertical flip — sky stays up
+  fliplr: 0.5       # Horizontal flip is natural
+  mosaic: 1.0       # Mosaic augmentation helps small object detection
+  mixup: 0.1        # Light mixup for water background diversity
+
+# Training hyperparameters
+training:
+  epochs: 300
+  batch_size: 16
+  warmup_epochs: 3
+  lr0: 0.01         # Initial learning rate
+  lrf: 0.01         # Final LR = lr0 * lrf
+  momentum: 0.937
+  weight_decay: 5e-4
+
+# CBAM attention — inserted after backbone layers 4, 6, 9
+cbam:
+  enabled: true
+  channels: [128, 256, 512]
+  reduction: 16
+  insertion_points: [4, 6, 9]  # After C3 blocks in backbone
+
+# Inference
+inference:
+  conf_threshold: 0.45
+  iou_threshold: 0.45
+  max_det: 100
+  device: "cuda:0"   # or "cpu" / "onnx"
+
+# Class names (7 classes)
+names:
+  0: vessel
+  1: buoy
+  2: swimmer
+  3: floating_debris
+  4: reef
+  5: navigation_marker
+  6: fishing_net
