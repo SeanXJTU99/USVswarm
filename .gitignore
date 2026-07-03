@@ -1,6 +1,7 @@
 # Data files (desensitized — not included)
 *.xlsx
 *.csv
+!data/mock/*.csv
 *.pth
 *.bin
 *.pt
@@ -12,6 +13,9 @@ secrets.yaml
 CLAUDE.md
 *.md
 !README.md
+!docs/*.md
+!docs/**/*.md
+!data/**/*.md
 
 # Python
 __pycache__/

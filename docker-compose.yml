@@ -1,0 +1,78 @@
+# Docker Compose — multi-container USV swarm simulation
+# One container per USV + one Gazebo server + optional UAV bridge
+#
+# Usage:
+#   docker compose up                  # 3-boat swarm
+#   docker compose up usv_0 usv_1      # 2-boat only
+#   docker compose up --scale usv=5    # 5-boat swarm
+
+version: "3.9"
+
+services:
+  # Gazebo simulation server (shared world)
+  gazebo:
+    image: osrf/ros:humble-desktop
+    container_name: gazebo_server
+    network_mode: host
+    environment:
+      - DISPLAY=${DISPLAY}
+      - GAZEBO_MASTER_URI=http://localhost:11345
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ./ros2_ws/src/usv_gazebo:/gazebo_assets:ro
+    command: >
+      bash -c "
+        source /opt/ros/humble/setup.sh &&
+        gazebo --verbose /gazebo_assets/worlds/water_surface.world
+      "
+
+  # USV 0 — Scout (camera + Jetson, YOLO perception)
+  usv_0:
+    build: .
+    container_name: usv_0
+    network_mode: host
+    environment:
+      - ROS_DOMAIN_ID=42
+      - USV_ID=usv_0
+      - USV_ROLE=scout
+      - DISPLAY=${DISPLAY}
+      - GAZEBO_MASTER_URI=http://localhost:11345
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    depends_on:
+      - gazebo
+    command: usv_0
+
+  # USV 1 — Worker (navigation only)
+  usv_1:
+    build: .
+    container_name: usv_1
+    network_mode: host
+    environment:
+      - ROS_DOMAIN_ID=42
+      - USV_ID=usv_1
+      - USV_ROLE=worker
+      - DISPLAY=${DISPLAY}
+      - GAZEBO_MASTER_URI=http://localhost:11345
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    depends_on:
+      - gazebo
+    command: usv_1
+
+  # USV 2 — Worker (navigation only)
+  usv_2:
+    build: .
+    container_name: usv_2
+    network_mode: host
+    environment:
+      - ROS_DOMAIN_ID=42
+      - USV_ID=usv_2
+      - USV_ROLE=worker
+      - DISPLAY=${DISPLAY}
+      - GAZEBO_MASTER_URI=http://localhost:11345
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    depends_on:
+      - gazebo
+    command: usv_2

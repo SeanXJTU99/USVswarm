@@ -1,0 +1,47 @@
+name: USV Swarm Tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container: osrf/ros:humble-desktop
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          apt-get update && apt-get install -y --no-install-recommends \
+            python3-pip \
+            python3-numpy \
+            python3-scipy \
+            python3-pytest \
+            python3-pytest-cov \
+            ros-humble-navigation2 \
+            ros-humble-cartographer-ros
+          pip3 install --no-cache-dir pyyaml
+
+      - name: Install Python packages
+        run: pip3 install --no-cache-dir -r requirements.txt
+
+      - name: Set up ROS 2 environment
+        run: |
+          . /opt/ros/humble/setup.sh
+          echo "ROS_DISTRO=humble" >> $GITHUB_ENV
+
+      - name: Run unit tests
+        run: |
+          . /opt/ros/humble/setup.sh
+          export PYTHONPATH=$PYTHONPATH:$(pwd)/ros2_ws/src/usv_control:$(pwd)/ros2_ws/src/usv_swarm:$(pwd)/ros2_ws/src/usv_navigation:$(pwd)/ros2_ws/src/usv_calibration:$(pwd)/ros2_ws/src/usv_perception:$(pwd)/ros2_ws/src/uav_bridge
+          python3 -m pytest tests/ -v --tb=short
+
+      - name: Lint with flake8
+        run: |
+          pip3 install flake8
+          flake8 ros2_ws/src/ --count --select=E9,F63,F7,F82 --show-source --statistics
