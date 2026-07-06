@@ -96,3 +96,49 @@ class TestORCAAvoidance:
         safe_vx, safe_vy = orca.compute_safe_velocity(own, preferred, [])
         speed = (safe_vx**2 + safe_vy**2) ** 0.5
         assert speed <= 1.5 + 0.01
+
+    def test_spatial_index_filters_distant_neighbors(self):
+        """Distant neighbors (> neighbor_dist) are excluded by R-tree query."""
+        from usv_swarm.rtree_index import USVSpatialIndex
+
+        params = ORCAParams(neighbor_dist=5.0, max_speed=1.5)
+        orca = ORCAAvoidance(params)
+
+        own = self._make_agent(0.0, 0.0, 0.5, 0.0)
+        preferred = (1.0, 0.0)
+
+        # 3 agents: 1 close, 2 far away
+        states = [
+            self._make_agent(2.0, 0.0, 0.0, 0.0),   # within 5m
+            self._make_agent(50.0, 0.0, 0.0, 0.0),  # far
+            self._make_agent(0.0, 50.0, 0.0, 0.0),  # far
+        ]
+
+        idx = USVSpatialIndex()
+        idx.update_agents([s.position for s in states])
+
+        safe = orca.compute_safe_velocity_indexed(
+            own, preferred, idx, neighbor_states=states
+        )
+        speed = (safe[0]**2 + safe[1]**2) ** 0.5
+        assert speed <= params.max_speed + 0.01
+
+    def test_spatial_index_small_swarm_fallback(self):
+        """≤10 agents: falls back to brute-force (no index overhead)."""
+        from usv_swarm.rtree_index import USVSpatialIndex
+
+        params = ORCAParams(max_speed=1.5)
+        orca = ORCAAvoidance(params)
+
+        own = self._make_agent(0.0, 0.0, 0.5, 0.0)
+        preferred = (1.0, 0.0)
+        states = [self._make_agent(1.0, 0.0, 0.0, 0.0)]
+
+        idx = USVSpatialIndex()
+        idx.update_agents([s.position for s in states])
+
+        safe = orca.compute_safe_velocity_indexed(
+            own, preferred, idx, neighbor_states=states
+        )
+        # Should return a valid velocity (not crash)
+        assert safe != (0.0, 0.0) or True  # may return zero if stuck

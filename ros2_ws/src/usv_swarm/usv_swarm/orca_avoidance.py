@@ -11,12 +11,20 @@ and deadlocks that plague purely reactive approaches.
 
 For USV swarms, ORCA is applied in the horizontal plane (2D velocity space)
 since all vessels operate at the same water surface level.
+
+Spatial acceleration: when the number of agents exceeds a threshold (default
+10), neighbor queries are routed through a cKDTree spatial index to reduce
+O(N²) brute-force iteration to O(N log N). The index is transparent to the
+caller — compute_safe_velocity accepts either a flat list or an index.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, TYPE_CHECKING
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from usv_swarm.rtree_index import USVSpatialIndex
 
 
 @dataclass
@@ -56,6 +64,9 @@ class ORCAAvoidance:
     (Jetson Nano, Raspberry Pi). Uses linear programming over a sampled
     set of candidate velocities rather than full LP solving.
     """
+
+    # Threshold above which spatial indexing is used
+    _SPATIAL_INDEX_THRESHOLD: int = 10
 
     # Candidate velocities to sample (polar grid)
     _SPEED_SAMPLES: int = 8
@@ -186,6 +197,74 @@ class ORCAAvoidance:
         limit = np.dot(n, np.add(own.velocity, avoidance))
 
         return (n, limit)
+
+    def compute_safe_velocity_indexed(
+        self,
+        own_state: AgentState,
+        preferred_velocity: Tuple[float, float],
+        spatial_index: "USVSpatialIndex",
+        neighbor_states: Optional[List[AgentState]] = None,
+    ) -> Tuple[float, float]:
+        """Compute safe velocity using spatial-index-accelerated neighbor queries.
+
+        When the swarm has > _SPATIAL_INDEX_THRESHOLD agents, this method
+        uses a cKDTree spatial index to query only neighbors within
+        neighbor_dist in O(log N), rather than iterating over all N agents.
+
+        For small swarms (≤ threshold), falls back to the brute-force
+        compute_safe_velocity for lower overhead.
+
+        Args:
+            own_state: Own position, velocity, and radius.
+            preferred_velocity: Desired velocity (from Boids / path planner).
+            spatial_index: Pre-built spatial index of all agent positions.
+            neighbor_states: Full list of agent states (only used if
+                             spatial_index is None or swarm is small).
+
+        Returns:
+            (vx, vy) safe velocity vector.
+        """
+        n_total = spatial_index.size if spatial_index is not None else 0
+
+        # Small swarm: brute-force is faster (avoids index overhead)
+        if n_total <= self._SPATIAL_INDEX_THRESHOLD:
+            if neighbor_states is None:
+                return preferred_velocity
+            return self.compute_safe_velocity(
+                own_state, preferred_velocity, neighbor_states
+            )
+
+        # Large swarm: R-tree filtered neighbor query
+        result = spatial_index.query_neighbors(
+            origin=own_state.position,
+            radius=self.params.neighbor_dist,
+            exclude_self=True,
+            self_position=own_state.position,
+        )
+
+        if len(result.indices) == 0:
+            return preferred_velocity
+
+        # Build AgentState list from filtered neighbors
+        filtered_neighbors: List[AgentState] = []
+        for i, idx in enumerate(result.indices):
+            pos = (float(result.positions[i][0]), float(result.positions[i][1]))
+            # Velocity from neighbor_states if available, else assume stationary
+            if neighbor_states and idx < len(neighbor_states):
+                vel = neighbor_states[idx].velocity
+            else:
+                vel = (0.0, 0.0)
+            filtered_neighbors.append(
+                AgentState(
+                    position=pos,
+                    velocity=vel,
+                    radius=self.params.radius,
+                )
+            )
+
+        return self.compute_safe_velocity(
+            own_state, preferred_velocity, filtered_neighbors
+        )
 
     def is_collision_imminent(
         self,

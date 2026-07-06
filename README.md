@@ -53,7 +53,7 @@ ros2_ws/src/
 | SLAM | Google Cartographer 2D, distributed C-SLAM |
 | Planning | A\*, DWA (ROS 2 nav2) |
 | Control | LOS guidance, cascaded PID (anti-windup, integral separation, derivative-first) |
-| Swarm | Boids (cohesion/alignment/separation), ORCA, leader-follower L-α, consensus |
+| Swarm | Boids (cohesion/alignment/separation), ORCA (with R-tree spatial index: O(N²)→O(N log N) neighbor queries), leader-follower L-α, consensus |
 | Communication | ROS 2 DDS, 5.8GHz Mesh, QoS profiles (Best Effort / Reliable) |
 | Cross-Domain | UAV overhead BEV, Hungarian assignment, visual servoing, star topology |
 | Calibration | Camera-IMU hand-eye, complementary filter IMU de-jitter |
