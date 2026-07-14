@@ -45,7 +45,77 @@ inference:
   conf_threshold: 0.45
   iou_threshold: 0.45
   max_det: 100
-  device: "cuda:0"   # or "cpu" / "onnx"
+  device: "cuda:0"          # PyTorch device; ignored for ONNX/TensorRT
+
+# --------------------------------------------------------------------------
+# Deployment optimization
+# --------------------------------------------------------------------------
+deployment:
+
+  # --- Frame-skip tracking (ROS 2 node parameter) ---
+  # Runs YOLO every N frames; intermediate frames use OpenCV CSRT trackers.
+  # Effective 2-3× speedup on any backend at negligible accuracy cost for
+  # slow-moving water surface objects (0.5–1.5 m/s).
+  frame_skip: 3              # ROS param: frame_skip (1 = every frame, no skip)
+  tracker_max_age: 6         # ROS param: tracker_max_age (drop after N frames)
+  tracker_min_confidence: 0.3
+
+  # --- Backend selection ---
+  # auto = detect from model_path extension (.engine > .onnx > .pt)
+  # Priority order by platform:
+  #   Jetson Xavier/Orin: tensorrt (60+ FPS FP16)
+  #   Jetson Nano:        onnx with CUDA EP (15-20 FPS)
+  #   Raspberry Pi 5:     onnx with CPU/OpenVINO EP (5-10 FPS)
+  #   x86 dev:            pytorch (reference)
+  backend:
+    ros_param: "backend"      # "auto" | "tensorrt" | "onnx" | "pytorch"
+
+    # Export commands (run once per target platform):
+    #
+    #   # TensorRT (Jetson — platform-specific, must build on target):
+    #   python -c "from ultralytics import YOLO; \
+    #     YOLO('yolov5s.pt').export(format='engine', device=0, half=True)"
+    #   # → yolov5s.engine  (~14 MB, 60+ FPS on Xavier NX @ FP16)
+    #
+    #   # ONNX (portable — build once, deploy anywhere):
+    #   python -c "from ultralytics import YOLO; \
+    #     YOLO('yolov5s.pt').export(format='onnx', opset=12, simplify=True)"
+    #   # → yolov5s.onnx  (~28 MB, platform-independent)
+
+  # --- Channel pruning (model-level, not runtime) ---
+  # Water surface detection has only 7 classes on a uniform background.
+  # YOLOv5s (7.2M params) is overparameterized for this task.
+  #
+  # Pruning recipe (torch-pruning or ultralytics built-in):
+  #   1. Train baseline yolov5s on water dataset → mAP@0.5 ~0.85
+  #   2. Prune 50% channels via L1-norm → 3.6M params
+  #   3. Fine-tune 50 epochs → mAP@0.5 ~0.83 (minimal drop)
+  #   4. Export to TensorRT/ONNX with half=True
+  #   Result: 15% smaller model, 1.5-2× faster inference, ~2% mAP cost
+  #
+  #   Pruning command (ultralytics):
+  #     model = YOLO('yolov5s-water.pt')
+  #     model.export(format='torchscript')  # for pruning tools
+  #
+  # For lightweight platforms (Jetson Nano, RPi), consider:
+  #   - Start from yolov5n (1.9M params) instead of yolov5s
+  #   - Or distill yolov5s → yolov5n with the water dataset
+
+  # --- Expected FPS by platform + backend ---
+  expected_performance:
+    jetson_orin_nx:
+      tensorrt_fp16: "60-80 FPS"
+      tensorrt_int8: "90-120 FPS"
+    jetson_nano:
+      tensorrt_fp16: "15-20 FPS"
+      onnx_cuda: "10-15 FPS"
+      onnx_cpu: "5-8 FPS"
+    raspberry_pi_5:
+      onnx_cpu: "5-10 FPS"
+      ncnn: "8-12 FPS"
+    x86_laptop_rtx3060:
+      pytorch_fp32: "80-100 FPS"
+      tensorrt_fp16: "150-200 FPS"
 
 # Class names (7 classes)
 names:

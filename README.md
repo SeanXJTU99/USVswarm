@@ -49,17 +49,46 @@ ros2_ws/src/
 
 | Layer | Technologies |
 |-------|-------------|
-| Perception | YOLOv5 + CBAM attention, inverse perspective mapping (IPM) |
+| Perception | YOLOv5 + CBAM attention, multi-backend (PyTorch/ONNX/TensorRT), frame-skip tracking (CSRT), inverse perspective mapping (IPM) |
 | SLAM | Google Cartographer 2D, distributed C-SLAM |
 | Planning | A\*, DWA (ROS 2 nav2) |
 | Control | LOS guidance, cascaded PID (anti-windup, integral separation, derivative-first) |
-| Swarm | Boids (cohesion/alignment/separation), ORCA (with R-tree spatial index: O(N²)→O(N log N) neighbor queries), leader-follower L-α, consensus |
+| Swarm | Boids (cohesion/alignment/separation), ORCA (R-tree spatial index, O(N log N)), leader-follower L-α, consensus |
 | Communication | ROS 2 DDS, 5.8GHz Mesh, QoS profiles (Best Effort / Reliable) |
 | Cross-Domain | UAV overhead BEV, Hungarian assignment, visual servoing, star topology |
 | Calibration | Camera-IMU hand-eye, complementary filter IMU de-jitter |
+| Optimization | TensorRT FP16 export, ONNX portable deployment, channel pruning (50%+), frame-skip tracking (2-3× effective FPS) |
 | Simulation | Gazebo + VRX wave plugin (current, wind, buoyancy) |
 | Deployment | Docker (osrf/ros:humble-desktop), docker-compose multi-container |
 | CI/CD | GitHub Actions (pytest) |
+
+## Inference Optimization
+
+Three-tier acceleration for edge deployment:
+
+| Technique | Speedup | Workload | Use Case |
+|-----------|---------|----------|----------|
+| Frame-skip tracking (CSRT) | 2-3× | ~50 lines | All platforms, zero accuracy cost |
+| ONNX Runtime (CUDA/CPU/OpenVINO) | 2-3× | One export command | Cross-platform portability |
+| TensorRT FP16 export | 3-5× | One export command | Jetson Xavier/Orin, 60+ FPS |
+| Channel pruning (50%) | 1.5-2× | Half-day fine-tune | Jetson Nano / RPi, < 15 FPS → 25+ |
+
+Expected FPS (YOLOv5s, 640×640, with frame-skip=3):
+
+| Platform | Backend | FPS |
+|----------|---------|-----|
+| Jetson Orin NX | TensorRT FP16 | 60-80 |
+| Jetson Nano | TensorRT FP16 | 15-20 |
+| Raspberry Pi 5 | ONNX CPU | 5-10 |
+
+Export commands:
+```bash
+# TensorRT (run on target Jetson)
+python -c "from ultralytics import YOLO; YOLO('yolov5s.pt').export(format='engine', device=0, half=True)"
+
+# ONNX (portable, build anywhere)
+python -c "from ultralytics import YOLO; YOLO('yolov5s.pt').export(format='onnx', opset=12, simplify=True)"
+```
 
 ## Quick Start
 
